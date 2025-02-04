@@ -1,0 +1,151 @@
+---
+title: "Preprocessing Meta Data"
+author: "Zhongyi (James) Guo"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+We extracted metadata (covariates) using `Table Exporter`. This file contains metadata cleaning and exploratory data analysis.
+
+```{r setup, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(readr)
+library(scales)
+setwd("~/ukb-nmr/scripts/data_prep")
+```
+
+## Data Cleaning
+
+```{r import_metadata, message=FALSE}
+metadata <- read_csv('~/pca_metabolomics/table_exporter/output/metadata__participant.csv')
+dim(metadata)
+```
+
+There were 228,973 participants and 13 columns (including `eid`).
+
+```{r map_field_titles, message=FALSE}
+# remove instance number and "p"
+fields_of_interest <- sub("^p", "", sub("_.*", "", colnames(metadata)[-1]))
+
+# extract field titles from field dictionary
+field_dictionary <- read_tsv('~/pca_metabolomics/Showcase metadata/field.tsv')
+field_titles <- field_dictionary |> 
+  filter(field_id %in% fields_of_interest) |> 
+  slice(match(fields_of_interest, field_id)) |>
+  pull(title)
+
+colnames(metadata) <- c('eid', field_titles)
+```
+
+```{r preview_final_metadata}
+metadata
+```
+
+## Exploratory Data Analysis
+
+NA rate:
+
+```{r NA_rate_of_all_columns}
+ colMeans(is.na(metadata))
+```
+
+```{r age_at_recruitment_distribution}
+boxplot(metadata$`Age at recruitment`, main = 'Histogram of Age at Recruitment', xlab = 'Age at Recruitment')
+```
+
+```{r ethnic_background_pie_chart}
+metadata |> 
+  group_by(`Ethnic background`) |> 
+  summarise(count = n()) |>
+  ggplot(aes(x = "", y = count, fill = `Ethnic background`)) +
+  geom_bar(stat = "identity", width = 1) +
+    coord_polar(theta = "y") +
+    labs(title = "Pie Chart of Ethnic Background") +
+    theme_minimal() +
+    theme(axis.text = element_blank(),
+          axis.title = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank(),
+          legend.text = element_text(size = 7),
+          legend.key.size = unit(0.5, "cm"))
+```
+
+```{r father_with_prostate_cancer_percentage}
+father_with_prostate_cancer <- metadata[grepl("prostate cancer", metadata$`Illnesses of father`, ignore.case = TRUE), ]
+nrow(father_with_prostate_cancer)
+```
+
+15,114 participants reported that their fathers had prostate cancer, which accounted for `r 15114 / nrow(metadata) * 100`% of the total participants.
+
+```{r siblings_with_prostate_cancer_percentage}
+siblings_with_prostate_cancer <- metadata[grepl("prostate cancer", metadata$`Illnesses of siblings`, ignore.case = TRUE), ]
+nrow(siblings_with_prostate_cancer)
+```
+
+2,928 participants reported that their siblings had prostate cancer, which accounted for `r 15114 / nrow(metadata) * 100`% of the total participants.
+
+```{r bmi_distribution}
+boxplot(metadata$`Body mass index (BMI)`, main = 'Histogram of BMI', xlab = 'BMI')
+```
+
+```{r time_blood_sample_collected_scatterplot}
+as.Date(metadata$`Time blood sample collected`) |>
+  as.data.frame() |>
+  na.omit() |>
+  setNames("date") |>
+  group_by(date) |>
+  summarise(count = n()) |>
+  ggplot(aes(x = date, y = count)) +
+  geom_point() +
+  ggtitle('Number of Blood Samples Collected Per Day') +
+  scale_x_date(
+    date_breaks = "1 month",  
+    date_labels = "%Y-%m-%d"
+  ) +
+  ylim(0, 400) + 
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)  # Rotate x-axis labels
+  )
+```
+
+```{r fasting_time_distribution}
+boxplot(metadata$`Fasting time`, main = 'Histogram of Fasting time', xlab = 'Fasting time')
+```
+
+```{r townsend_deprivation_index_at_recruitment_distribution}
+boxplot(metadata$`Townsend deprivation index at recruitment`, main = 'Histogram of Townsend deprivation index at recruitment', xlab = 'Townsend deprivation index at recruitment')
+```
+
+```{r ever_smoked_pie_chart}
+metadata |> 
+  group_by(`Ever smoked`) |> 
+  summarise(count = n()) |>
+  ggplot(aes(x = "", y = count, fill = `Ever smoked`)) +
+  geom_bar(stat = "identity", width = 1) +
+    coord_polar(theta = "y") +
+    labs(title = "Pie Chart of Ever Smoked") +
+    theme_minimal() +
+    theme(axis.text = element_blank(),
+          axis.title = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank())
+```
+
+```{r cholesterol_distribution}
+boxplot(metadata$`Cholesterol`, main = 'Histogram of Cholesterol', xlab = 'Cholesterol')
+```
+
+```{r hdl_cholesterol_distribution}
+boxplot(metadata$`HDL cholesterol`, main = 'Histogram of HDL cholesterol', xlab = 'HDL cholesterol')
+```
+
+## Save Cleaned Meta Data
+
+```{r save_metadata}
+write.csv(metadata, '~/pca_metabolomics/cleaned_data/metadata_cleaned.csv', row.names = FALSE)
+```
+
+```{r sessionInfo}
+sessionInfo()
+```

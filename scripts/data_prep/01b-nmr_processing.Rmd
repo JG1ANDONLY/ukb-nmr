@@ -1,0 +1,101 @@
+---
+title: "Preprocessing NMR Processing"
+author: "Zhongyi (James) Guo"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+We extracted NMR processing using `Table Exporter`. This file contains NMR processing data cleaning and exploratory data analysis.
+
+```{r setup, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(readr)
+setwd("~/ukb-nmr/scripts/data_prep")
+```
+
+## Data Cleaning
+
+```{r import_nmr_processing, warning=FALSE, message=FALSE}
+nmr_processing <- read_csv('~/pca_metabolomics/table_exporter/output/nmr_processing_participant.csv')
+dim(nmr_processing)
+```
+
+There were 228,973 participants and 8 columns (including `eid`).
+
+```{r map_field_titles, message=FALSE, warning=FALSE}
+# remove instance 1 columns
+nmr_processing <- nmr_processing |>
+  select(-matches("i1$"))
+
+# remove instance number and "p"
+fields_of_interest <- sub("^p", "", sub("_.*", "", colnames(nmr_processing)[-1]))
+
+# extract field titles from field dictionary
+field_dictionary <- read_tsv('~/pca_metabolomics/Showcase metadata/field.tsv')
+field_titles <- field_dictionary |> 
+  filter(field_id %in% fields_of_interest) |> 
+  slice(match(fields_of_interest, field_id)) |>
+  pull(title)
+
+colnames(nmr_processing) <- c('eid', field_titles)
+```
+
+```{r preview_nmr_processing}
+nmr_processing
+```
+
+## Exploratory Data Analysis
+
+NA rate:
+
+```{r NA_rate_of_all_columns}
+ colMeans(is.na(nmr_processing))
+```
+
+```{r prostate_cancer_percentage}
+with_prostate_cancer <- nmr_processing[grepl("C61", nmr_processing$`Type of cancer: ICD10`, ignore.case = FALSE), ]
+nrow(with_prostate_cancer)
+```
+
+13,242 participants had prostate cancer, which accounted for `r 13242 / nrow(nmr_processing) * 100`% of the total participants.
+
+```{r control_percentage}
+icd10_na <- nmr_processing[is.na(nmr_processing$`Type of cancer: ICD10`), ]
+nrow(icd10_na)
+```
+
+173,598 had no cancer, which accounted for `r 173598 / nrow(nmr_processing) * 100`% of the total participants.
+
+```{r high_pyruvate_percentage}
+unique(nmr_processing$`High Pyruvate`)
+```
+
+No values for the `High Pyruvate` column.
+
+```{r low_protein_percentage}
+table(nmr_processing$`Low Protein`)
+```
+
+853 had low protein.
+
+```{r low_glucose_percentage}
+unique(nmr_processing$`Low Glucose`)
+```
+
+No values for the `Low Glucose` column.
+
+```{r high_lactage_percentage}
+table(nmr_processing$`High Lactate`)
+```
+
+21,663 had high lactate.
+
+## Save Cleaned NMR Processing
+
+```{r save_nmr_processing}
+write.csv(nmr_processing, '~/pca_metabolomics/cleaned_data/nmr_processing_cleaned.csv', row.names = FALSE)
+```
+
+```{r sessionInfo}
+sessionInfo()
+```
